@@ -4,6 +4,8 @@ const titleBar = document.getElementById('title-bar');
 let isDragging = false;
 let isResizing = false;
 let currentResizeEdge = null;
+let isMaximized = false;
+let preMaximizedRect = null;
 
 // Dragging variables
 let dragStartX, dragStartY;
@@ -21,7 +23,7 @@ windowEl.addEventListener('mousedown', () => {
 
 // Dragging logic
 titleBar.addEventListener('mousedown', (e) => {
-    if (e.button !== 0 || e.target.classList.contains('control')) return;
+    if (e.button !== 0 || e.target.classList.contains('control') || isMaximized) return;
     
     isDragging = true;
     dragStartX = e.clientX;
@@ -62,19 +64,62 @@ function stopDrag() {
 }
 
 // Corner Resize logic
-const resizeHandle = document.querySelector('.resize-handle');
-resizeHandle.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    startResize(e, 'se');
+const resizeCorners = document.querySelectorAll('.resize-corner');
+resizeCorners.forEach(corner => {
+    corner.addEventListener('mousedown', (e) => {
+        if (e.button !== 0 || isMaximized) return;
+        startResize(e, corner.dataset.corner);
+    });
 });
 
 // Edge Resize logic
 const resizeEdges = document.querySelectorAll('.resize-edge');
 resizeEdges.forEach(edge => {
     edge.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0 || isMaximized) return;
         startResize(e, edge.dataset.edge);
     });
+});
+
+function toggleMaximize() {
+    if (!isMaximized) {
+        // Save current dimensions and position
+        preMaximizedRect = {
+            width: windowEl.style.width || `${windowEl.offsetWidth}px`,
+            height: windowEl.style.height || `${windowEl.offsetHeight}px`,
+            left: windowEl.style.left || `${windowEl.offsetLeft}px`,
+            top: windowEl.style.top || `${windowEl.offsetTop}px`
+        };
+        
+        // Maximize
+        windowEl.classList.add('maximized');
+        windowEl.style.width = `${window.innerWidth}px`;
+        windowEl.style.height = `${window.innerHeight}px`;
+        windowEl.style.left = '0px';
+        windowEl.style.top = '0px';
+        isMaximized = true;
+    } else {
+        // Restore
+        windowEl.classList.remove('maximized');
+        if (preMaximizedRect) {
+            windowEl.style.width = preMaximizedRect.width;
+            windowEl.style.height = preMaximizedRect.height;
+            windowEl.style.left = preMaximizedRect.left;
+            windowEl.style.top = preMaximizedRect.top;
+        } else {
+            // Fallback to default size/position if no saved state
+            windowEl.style.width = '720px';
+            windowEl.style.height = '638px';
+            windowEl.style.left = 'calc(50vw - 360px)';
+            windowEl.style.top = 'calc(50vh - 319px)';
+        }
+        isMaximized = false;
+    }
+}
+
+titleBar.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.window-controls') || e.target.classList.contains('control')) return;
+    toggleMaximize();
 });
 
 function startResize(e, edge) {
@@ -109,18 +154,27 @@ function onResize(e) {
     const maxWidth = window.innerWidth;
     const maxHeight = window.innerHeight;
 
-    if (currentResizeEdge === 'se' || currentResizeEdge === 'right') {
-        newWidth = Math.min(maxWidth, Math.max(minWidth, initialWidth + dx));
+    const isRight = ['se', 'ne', 'right'].includes(currentResizeEdge);
+    const isLeft = ['sw', 'nw', 'left'].includes(currentResizeEdge);
+    const isBottom = ['se', 'sw', 'bottom'].includes(currentResizeEdge);
+    const isTop = ['nw', 'ne', 'top'].includes(currentResizeEdge);
+
+    if (isRight) {
+        const maxAllowedWidth = maxWidth - initialLeft;
+        newWidth = Math.min(maxAllowedWidth, Math.max(minWidth, initialWidth + dx));
     }
-    if (currentResizeEdge === 'se' || currentResizeEdge === 'bottom') {
-        newHeight = Math.min(maxHeight, Math.max(minHeight, initialHeight + dy));
-    }
-    if (currentResizeEdge === 'left') {
-        newWidth = Math.min(maxWidth, Math.max(minWidth, initialWidth - dx));
+    if (isLeft) {
+        const maxAllowedWidth = initialLeft + initialWidth;
+        newWidth = Math.min(maxAllowedWidth, Math.min(maxWidth, Math.max(minWidth, initialWidth - dx)));
         newLeft = initialLeft + (initialWidth - newWidth);
     }
-    if (currentResizeEdge === 'top') {
-        newHeight = Math.min(maxHeight, Math.max(minHeight, initialHeight - dy));
+    if (isBottom) {
+        const maxAllowedHeight = maxHeight - initialTop;
+        newHeight = Math.min(maxAllowedHeight, Math.max(minHeight, initialHeight + dy));
+    }
+    if (isTop) {
+        const maxAllowedHeight = initialTop + initialHeight;
+        newHeight = Math.min(maxAllowedHeight, Math.min(maxHeight, Math.max(minHeight, initialHeight - dy)));
         newTop = initialTop + (initialHeight - newHeight);
     }
     
@@ -230,7 +284,8 @@ const config = {
     autoDownload: false,
     showCountdown: true,
     background: 'bg-classic',
-    aspectRatio: 1.5 // 3:2 default
+    aspectRatio: 1.5, // 3:2 default
+    flashDelay: 300   // default 300ms delay
 };
 
 function getCropDimensions(videoWidth, videoHeight, targetRatio) {
@@ -257,6 +312,13 @@ function getNonCameraHeight() {
 }
 
 function constrainWindow() {
+    if (isMaximized) {
+        windowEl.style.width = `${window.innerWidth}px`;
+        windowEl.style.height = `${window.innerHeight}px`;
+        windowEl.style.left = '0px';
+        windowEl.style.top = '0px';
+        return;
+    }
     const rect = windowEl.getBoundingClientRect();
     const maxWidth = window.innerWidth;
     const maxHeight = window.innerHeight;
@@ -634,7 +696,7 @@ const wait = (ms) => new Promise(res => setTimeout(res, ms));
 
 async function takeSinglePhoto() {
     triggerFlash();
-    await wait(150); // Wait for the flash to light up the user's face and for the webcam to capture the illuminated frame
+    await wait(config.flashDelay); // Wait for the flash delay
 
     const crop = getCropDimensions(videoFeed.videoWidth, videoFeed.videoHeight, config.aspectRatio);
     captureCanvas.width = crop.sWidth;
@@ -679,7 +741,7 @@ async function takeGridPhoto() {
         }
 
         triggerFlash();
-        await wait(150); // Wait for the flash to light up the user's face and for the webcam to capture the illuminated frame
+        await wait(config.flashDelay); // Wait for the flash delay
         ctx.save();
         if (currentFilterStyle && currentFilterStyle !== 'none') {
             ctx.filter = currentFilterStyle;
