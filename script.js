@@ -548,7 +548,7 @@ function triggerFlash() {
     }
     setTimeout(() => {
         flashOverlay.classList.remove('flash');
-    }, 50); // Small delay to let browser render the class addition before transition removes it
+    }, 100); // Wait 100ms before starting the fade-out transition
 }
 
 function downloadImage(dataUrl, filename) {
@@ -634,6 +634,7 @@ const wait = (ms) => new Promise(res => setTimeout(res, ms));
 
 async function takeSinglePhoto() {
     triggerFlash();
+    await wait(150); // Wait for the flash to light up the user's face and for the webcam to capture the illuminated frame
 
     const crop = getCropDimensions(videoFeed.videoWidth, videoFeed.videoHeight, config.aspectRatio);
     captureCanvas.width = crop.sWidth;
@@ -678,6 +679,7 @@ async function takeGridPhoto() {
         }
 
         triggerFlash();
+        await wait(150); // Wait for the flash to light up the user's face and for the webcam to capture the illuminated frame
         ctx.save();
         if (currentFilterStyle && currentFilterStyle !== 'none') {
             ctx.filter = currentFilterStyle;
