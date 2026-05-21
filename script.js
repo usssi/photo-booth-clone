@@ -82,6 +82,13 @@ resizeEdges.forEach(edge => {
 });
 
 function toggleMaximize() {
+    // Ensure transition only for maximize/restore
+    const applyAnimation = () => {
+        windowEl.classList.add('animate');
+        // Remove the class after the transition completes (approx 250ms)
+        setTimeout(() => windowEl.classList.remove('animate'), 300);
+    };
+
     if (!isMaximized) {
         // Save current dimensions and position
         preMaximizedRect = {
@@ -91,7 +98,8 @@ function toggleMaximize() {
             top: windowEl.style.top || `${windowEl.offsetTop}px`
         };
         
-        // Maximize
+        // Maximize with animation
+        applyAnimation();
         windowEl.classList.add('maximized');
         windowEl.style.width = `${window.innerWidth}px`;
         windowEl.style.height = `${window.innerHeight}px`;
@@ -99,7 +107,8 @@ function toggleMaximize() {
         windowEl.style.top = '0px';
         isMaximized = true;
     } else {
-        // Restore
+        // Restore with animation
+        applyAnimation();
         windowEl.classList.remove('maximized');
         if (preMaximizedRect) {
             windowEl.style.width = preMaximizedRect.width;
@@ -109,9 +118,9 @@ function toggleMaximize() {
         } else {
             // Fallback to default size/position if no saved state
             windowEl.style.width = '720px';
-            windowEl.style.height = '638px';
+            windowEl.style.height = '580px';
             windowEl.style.left = 'calc(50vw - 360px)';
-            windowEl.style.top = 'calc(50vh - 319px)';
+            windowEl.style.top = 'calc(50vh - 290px)';
         }
         isMaximized = false;
     }
@@ -349,25 +358,44 @@ function adjustWindowToAspectRatio(byWidth = true) {
     const maxWidth = window.innerWidth;
     const maxHeight = window.innerHeight;
 
+    let targetWidth, targetHeight;
+
     if (byWidth) {
-        let targetHeight = rect.width / config.aspectRatio + nonCamHeight;
+        // Calculate height based on current width and aspect ratio
+        targetHeight = rect.width / config.aspectRatio + nonCamHeight;
+        targetWidth = rect.width;
         if (targetHeight > maxHeight) {
             targetHeight = maxHeight;
-            const targetWidth = (targetHeight - nonCamHeight) * config.aspectRatio;
-            windowEl.style.width = `${Math.max(480, Math.min(maxWidth, targetWidth))}px`;
+            targetWidth = (targetHeight - nonCamHeight) * config.aspectRatio;
         }
-        windowEl.style.height = `${Math.max(458, Math.min(maxHeight, targetHeight))}px`;
     } else {
-        let cameraHeight = rect.height - nonCamHeight;
-        let targetWidth = cameraHeight * config.aspectRatio;
+        // Calculate width based on current height and aspect ratio
+        targetWidth = (rect.height - nonCamHeight) * config.aspectRatio;
+        targetHeight = rect.height;
         if (targetWidth > maxWidth) {
             targetWidth = maxWidth;
-            cameraHeight = targetWidth / config.aspectRatio;
-            windowEl.style.height = `${Math.max(458, Math.min(maxHeight, cameraHeight + nonCamHeight))}px`;
+            targetHeight = targetWidth / config.aspectRatio + nonCamHeight;
         }
-        windowEl.style.width = `${Math.max(480, Math.min(maxWidth, targetWidth))}px`;
     }
-    constrainWindow();
+
+    // Enforce minimum dimensions
+    targetWidth = Math.max(480, Math.min(maxWidth, targetWidth));
+    targetHeight = Math.max(458, Math.min(maxHeight, targetHeight));
+
+    // Center the window within the viewport
+    const left = Math.max(0, (maxWidth - targetWidth) / 2);
+    const top = Math.max(0, (maxHeight - targetHeight) / 2);
+
+    // Apply animation class for smooth transition
+    windowEl.classList.add('animate');
+    windowEl.style.width = `${targetWidth}px`;
+    windowEl.style.height = `${targetHeight}px`;
+    windowEl.style.left = `${left}px`;
+    windowEl.style.top = `${top}px`;
+    // Remove animation class after transition completes
+    setTimeout(() => {
+        windowEl.classList.remove('animate');
+    }, 300);
 }
 
 // Apply initial background

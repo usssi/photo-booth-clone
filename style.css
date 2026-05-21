@@ -56,10 +56,10 @@ body.bg-bigsur {
 
 .window {
     position: absolute;
-    top: calc(50vh - 319px);
+    top: calc(50vh - 290px);
     left: calc(50vw - 360px);
     width: 720px;
-    height: 638px;
+    height: 580px;
     min-width: 480px;
     min-height: 458px;
     max-width: 100vw;
@@ -70,8 +70,8 @@ body.bg-bigsur {
     display: flex;
     flex-direction: column;
     user-select: none;
+    transition: none; /* removed global transition */
 }
-
 /* Title Bar */
 .title-bar {
     height: var(--title-bar-height);
@@ -411,6 +411,10 @@ body.bg-bigsur {
     pointer-events: none;
     z-index: 50;
     transition: opacity 0.5s ease-out;
+}
+
+.window.animate {
+    transition: all 0.25s ease-in-out;
 }
 
 #flash-overlay.flash {
